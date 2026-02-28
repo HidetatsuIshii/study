@@ -2,73 +2,67 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 2.6</title>
+    <title>TOHO - Ver 2.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
-<body class="bg-black text-white font-serif">
-    <div class="max-w-xl mx-auto py-12 px-6">
-        <div class="text-right"><span class="text-[10px] bg-white text-black px-2 py-1 rounded-full font-bold">Ver 2.6 (Auto-Discovery)</span></div>
-        <h1 class="text-4xl text-center tracking-widest font-bold mt-8 mb-2">THE HERITAGE</h1>
-        <p class="text-gray-500 text-center italic mb-10 text-xs">A very COOL every LIFE!</p>
-
-        <div class="bg-gray-900 p-8 rounded border border-gray-800 space-y-6">
-            <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm outline-none" placeholder="Paste Gemini API Key">
-            <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
-            <button onclick="runV26()" id="btnV26" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 uppercase text-sm">Create COOL Proposal</button>
+<body class="bg-black text-white p-10 font-serif text-center">
+    <div class="max-w-md mx-auto space-y-8">
+        <h1 class="text-2xl tracking-tighter">THE HERITAGE <span class="text-xs bg-white text-black px-2 rounded ml-2">v2.7</span></h1>
+        <div class="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4 text-left">
+            <input type="password" id="key" class="w-full bg-black border border-gray-700 p-3 rounded" placeholder="NEW AI Studio Key">
+            <input type="file" id="img" accept="image/*" class="w-full text-xs text-gray-400">
+            <button onclick="go()" id="b" class="w-full bg-white text-black font-bold py-4 rounded">BUILD PPTX</button>
         </div>
-        <div id="statusV26" class="mt-6 text-center text-[10px] text-gray-400 whitespace-pre-wrap"></div>
+        <p id="msg" class="text-[10px] text-gray-500 whitespace-pre-wrap"></p>
     </div>
 
     <script>
-        async function runV26() {
-            const key = document.getElementById('apiKey').value;
-            const file = document.getElementById('imageInput').files[0];
-            const status = document.getElementById('statusV26');
-            if(!key || !file) return alert("入力が不足しています");
+        async function go() {
+            const k = document.getElementById('key').value;
+            const f = document.getElementById('img').files[0];
+            const s = document.getElementById('msg');
+            if(!k || !f) return alert("Keyと画像を入力してください");
 
-            status.innerText = "Ver 2.6: 最適なモデルを探しています...";
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                const base64Data = reader.result.split(',')[1];
-                // 試行するエンドポイントリスト
-                const endpoints = [
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-                    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`,
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${key}`
-                ];
+            s.innerText = "通信開始...";
+            const r = new FileReader();
+            r.readAsDataURL(f);
+            r.onload = async () => {
+                const base64 = r.result.split(',')[1];
+                // 確実に動作する最新の正規エンドポイント
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${k}`;
 
-                for (let url of endpoints) {
-                    try {
-                        status.innerText = `接続試行中...\n${url.split('models/')[1].split(':')[0]}`;
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            body: JSON.stringify({ contents: [{ parts: [
-                                { text: "画像からキザな英語題名、日本語キャッチ、紹介ポエムをJSONで。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
-                                { inlineData: { mimeType: file.type, data: base64Data } }
-                            ]}]})
-                        });
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        body: JSON.stringify({ contents: [{ parts: [
+                            { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語タイトル、クールな日本語一言、300字の紹介ポエムをJSON形式で出力してください。出力は必ずJSONのみにすること。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                            { inlineData: { mimeType: f.type, data: base64 } }
+                        ]}]})
+                    });
 
-                        if (response.ok) {
-                            const resData = await response.json();
-                            const json = JSON.parse(resData.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
-                            
-                            const pptx = new PptxGenJS();
-                            const slide = pptx.addSlide();
-                            slide.background = { color: "000000" };
-                            slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
-                            slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                            slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF" });
-                            slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 11, color: "CCCCCC", lineSpacing: 20 });
-                            
-                            await pptx.writeFile({ fileName: `TOHO_FINAL_SUCCESS.pptx` });
-                            status.innerText = "生成成功！";
-                            return;
-                        }
-                    } catch (e) { console.log(e); }
+                    if(!res.ok) {
+                        const err = await res.json();
+                        throw new Error(`[${res.status}] ${err.error.message}`);
+                    }
+
+                    const data = await res.json();
+                    const txt = data.candidates[0].content.parts[0].text;
+                    const json = JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+
+                    const pptx = new PptxGenJS();
+                    const slide = pptx.addSlide();
+                    slide.background = { color: "000000" };
+                    slide.addImage({ data: r.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+                    slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia" });
+                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF" });
+                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 6, fontSize: 11, color: "CCCCCC", lineSpacing: 20 });
+                    
+                    await pptx.writeFile({ fileName: "SUCCESS.pptx" });
+                    s.innerText = "成功しました！パワポを確認してください。";
+                } catch (e) {
+                    s.innerText = "エラー発生：\n" + e.message + "\n\n※404の場合、APIキーを作り直して5分待ってから再試行してください。";
                 }
-                status.innerText = "全エンドポイントで404。Google AI Studioで新しいキーを発行し直すことを強く推奨します。";
             };
         }
     </script>
