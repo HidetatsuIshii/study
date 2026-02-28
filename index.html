@@ -27,11 +27,11 @@
             </div>
 
             <button onclick="generatePamphlet()" id="btn" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition uppercase tracking-widest shadow-lg">
-                CREATE COOL PROPOSAL
+                CREATE MAG-STYLE PPTX
             </button>
         </section>
 
-        <div id="status" class="mt-8 text-center text-xs text-gray-500 tracking-widest h-8"></div>
+        <div id="status" class="mt-8 text-center text-xs text-gray-500 tracking-widest h-8 overflow-hidden"></div>
     </div>
 
     <script>
@@ -54,20 +54,24 @@
                 reader.onload = async () => {
                     const base64Data = reader.result.split(',')[1];
 
-                    // あなたの環境で動作が確認された「gemini-3-flash-preview」を第一候補に設定
+                    // あなたの環境で動作が確認された「gemini-3-flash-preview」を使用
                     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`;
 
+                    // プロンプトを大幅に修正：テキストだけでなく、表紙画像生成用のプロンプトも要求する
                     const prompt = `
                         あなたは東宝ハウス練馬のクリエイティブディレクターです。
-                        送られた物件資料から情報を抽出し、必ず以下のJSON形式のみで出力してください。
-                        1. title: 成功者の孤独や静寂を表現する、英語のキザなタイトル
-                        2. catchphrase: 日本語で、その家でのドラマを感じさせるクールな一言
-                        3. description: 300字程度の、スペックを語らず感性に訴える紹介文
-                        
-                        トーン：圧倒的な優越感、静寂、美学。平凡な説明（日当たり、駅近など）は禁止。
+                        送られた物件資料（1枚目の画像）から情報を抽出し、必ず以下のJSON形式のみで出力してください。
+
+                        {
+                          "title": "成功者の孤独や静寂を表現する、英語のキザなタイトル（例: THE ABSOLUTE SILENCE）",
+                          "catchphrase": "日本語で、その家でのドラマを感じさせるクールな一言（例: 練馬で、大人の隠れ家を楽しむ。）",
+                          "description": "300字程度の、スペックを語らず感性に訴える紹介文。トーンは圧倒的な優越感。",
+                          "cover_image_prompt": "この物件の雰囲気（優越感、静寂、美学）に合致する、高級ライフスタイル雑誌の表紙を飾るような、人物（例：ソファに座り寛ぐスタイリッシュな男性）または洗練されたインテリア（例：光が差し込むミニマルなリビング）の画像生成用プロンプト（英語）。"
+                        }
                     `;
 
-                    const response = await fetch(endpoint, {
+                    // 1. まずテキストと画像プロンプトを生成
+                    const textResponse = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -80,21 +84,47 @@
                         })
                     });
 
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.error.message);
+                    if (!textResponse.ok) {
+                        const err = await textResponse.json();
+                        throw new Error("テキスト生成エラー: " + err.error.message);
                     }
 
-                    const resData = await response.json();
-                    const aiText = resData.candidates[0].content.parts[0].text;
-                    
-                    // JSON部分を抽出
+                    const textData = await textResponse.json();
+                    const aiText = textData.candidates[0].content.parts[0].text;
                     const jsonMatch = aiText.match(/\{[\s\S]*\}/);
                     if (!jsonMatch) throw new Error("AIの応答形式が正しくありません。");
                     const data = JSON.parse(jsonMatch[0]);
 
-                    // パワポ生成
-                    createPPTX(data, reader.result);
+                    // 2. 生成されたプロンプトを使って表紙画像を生成
+                    status.innerText = "雑誌の表紙を飾る、至高の瞬間をAIが描画中...";
+                    
+                    // Playgroundで確認できたモデルIDリストを参考に、画像生成に対応したモデルID（仮）をセット
+                    // 実際の画像生成エンドポイントやモデルIDは環境により異なる可能性がありますが、ここではリストにあったIDを参考に記述します
+                    const imageEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${key}`;
+
+                    const imageResponse = await fetch(imageEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: data.cover_image_prompt + " --aspect 9:16 --v 6.0" } // 雑誌風にするため縦長を模倣
+                                ]
+                            }]
+                        })
+                    });
+
+                    if (!imageResponse.ok) {
+                        const err = await imageResponse.json();
+                        throw new Error("画像生成エラー: " + err.error.message);
+                    }
+
+                    const imageData = await imageResponse.json();
+                    const generatedBase64 = imageData.candidates[0].content.parts[0].inlineData.data;
+                    const coverImageUrl = `data:image/png;base64,${generatedBase64}`;
+
+                    // 3. 生成されたテキストと画像を使ってパワポを生成
+                    createPPTX(data, coverImageUrl, reader.result);
                     
                     status.innerText = "美学が形になりました。ダウンロードを開始します。";
                     btn.disabled = false;
@@ -107,38 +137,50 @@
             }
         }
 
-        function createPPTX(aiData, mainImage) {
+        function createPPTX(aiData, coverImage, originalImage) {
             let pptx = new PptxGenJS();
             
-            // スライド1: 表紙
-            let slide = pptx.addSlide();
-            slide.background = { color: "000000" };
+            // スライド1: 表紙（雑誌風）
+            let slide1 = pptx.addSlide();
+            slide1.background = { color: "FFFFFF" }; // 雑誌風なので白背景
 
-            // 背景写真（全面）
-            // opacityは0.5〜0.6程度が、文字が沈まずかつ写真も活きる絶妙なラインです
-            slide.addImage({ data: mainImage, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+            // AIが生成した表紙画像（全面）
+            slide1.addImage({ data: coverImage, x: 0, y: 0, w: "100%", h: "100%" });
 
-            // タイトル（Georgia：高級感のあるセリフ体）
-            slide.addText(aiData.title, {
-                x: 0.5, y: 1.5, w: 9, fontSize: 44, color: "FFFFFF", bold: true, fontFace: "Georgia"
-            });
-
-            // キャッチコピー（MS Mincho：日本語の静寂と重厚感を演出）
-            slide.addText(aiData.catchphrase, {
-                x: 0.5, y: 2.8, w: 8, fontSize: 24, color: "FFFFFF", fontFace: "MS Mincho"
-            });
-
-            // 説明文（行間を広めにして雑誌のような「読ませる」レイアウトに）
-            slide.addText(aiData.description, {
-                x: 0.5, y: 4.5, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 22
+            // タイトル（Georgia：高級感のあるセリフ体、最上部に配置）
+            slide1.addText(aiData.title, {
+                x: 0.5, y: 0.5, w: 9, fontSize: 60, color: "FFFFFF", bold: true, fontFace: "Georgia", charSpacing: 2
             });
 
             // ロゴ代わりのテキスト（最上部：ブランドの象徴）
-            slide.addText("TOHO HOUSE NERIMA PRESENTS", {
-                x: 0.5, y: 0.3, fontSize: 10, color: "FFFFFF", bold: true, characterSpacing: 2
+            slide1.addText("THE NERIMA COLLECTIVE", {
+                x: 0.5, y: 1.2, fontSize: 12, color: "FFFFFF", bold: true, charSpacing: 1
             });
 
-            pptx.writeFile({ fileName: `HERITAGE_PROPOSAL_${Date.now()}.pptx` });
+            // キャッチコピー（MS Mincho：日本語の静寂と重厚感を演出、中央に配置）
+            slide1.addText(aiData.catchphrase, {
+                x: 0.5, y: 3.5, w: 9, fontSize: 32, color: "FFFFFF", fontFace: "MS Mincho", bold: true, align: "center"
+            });
+
+            // 説明文（行間を広めにして雑誌のような「読ませる」レイアウトに、下部に配置）
+            slide1.addText(aiData.description, {
+                x: 0.5, y: 7.0, w: 6, fontSize: 12, color: "FFFFFF", fontFace: "MS Mincho", lineSpacing: 24, align: "left"
+            });
+
+            // 最下部のブランド表記
+            slide1.addText("TOHO HOUSE NERIMA PRESENTS | VOL. 01", {
+                x: 0.5, y: 9.2, fontSize: 10, color: "FFFFFF", bold: true, align: "center"
+            });
+
+            // スライド2: 物件詳細（元の販売図面を配置）
+            let slide2 = pptx.addSlide();
+            slide2.background = { color: "000000" };
+            slide2.addImage({ data: originalImage, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.8 });
+            slide2.addText("OBJECT DETAILS", {
+                x: 0.5, y: 0.5, w: 9, fontSize: 36, color: "FFFFFF", bold: true, fontFace: "Georgia"
+            });
+
+            pptx.writeFile({ fileName: `HERITAGE_MAG_STYLE_${Date.now()}.pptx` });
         }
     </script>
 </body>
