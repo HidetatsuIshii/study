@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE HERITAGE - TOHO HOUSE NERIMA</title>
+    <title>THE HERITAGE - Ver 6.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <style>
+        .loading-shimmer {
+            background: linear-gradient(90deg, #111 25%, #222 50%, #111 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    </style>
 </head>
 <body class="bg-black text-white font-serif">
 
     <div class="max-w-3xl mx-auto py-12 px-6">
         <header class="mb-12 border-b border-gray-700 pb-6 text-center">
-            <h1 class="text-4xl tracking-widest font-bold">THE HERITAGE</h1>
-            <p class="text-gray-400 mt-2 text-sm italic uppercase tracking-tighter">A very COOL every LIFE!</p>
+            <h1 class="text-4xl tracking-widest font-bold uppercase">THE HERITAGE</h1>
+            <p class="text-gray-400 mt-2 text-sm italic uppercase tracking-tighter">TOHO HOUSE NERIMA COLLECTIVE</p>
         </header>
 
         <section class="space-y-8 bg-gray-900 p-8 rounded-lg border border-gray-800 shadow-2xl">
-            <div>
-                <label class="block text-xs text-gray-500 mb-1 uppercase tracking-widest text-center">Gemini API Key</label>
-                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-white text-center text-sm focus:border-white outline-none transition" placeholder="Paste your API Key here">
+            <div class="space-y-4">
+                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-white text-center text-sm focus:border-white outline-none transition" placeholder="Paste your Gemini API Key">
+                <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-center text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-gray-800 file:text-white">
             </div>
 
-            <div>
-                <label class="block text-xs text-gray-500 mb-1 uppercase tracking-widest text-center">Object Image / Sales Drawing</label>
-                <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-center text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-gray-800 file:text-white hover:file:bg-gray-700 transition cursor-pointer">
-            </div>
-
-            <button onclick="generatePamphlet()" id="btn" class="w-full bg-white text-black font-bold py-5 rounded hover:bg-gray-200 transition uppercase tracking-[0.2em] text-sm shadow-inner">
+            <button onclick="generatePamphlet()" id="btn" class="w-full bg-white text-black font-bold py-5 rounded hover:bg-gray-200 transition uppercase tracking-[0.2em] text-sm">
                 GENERATE MAG-STYLE PROPOSAL
             </button>
 
@@ -34,170 +37,108 @@
                 <div class="w-full bg-gray-800 h-1 rounded-full overflow-hidden">
                     <div id="progressBar" class="bg-white h-full transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <div id="statusLabel" class="text-center text-[10px] text-gray-400 tracking-widest uppercase italic">Initializing...</div>
+                <div id="statusLabel" class="text-center text-[10px] text-gray-500 tracking-widest uppercase italic">Preparing...</div>
             </div>
         </section>
 
-        <div id="errorDisplay" class="mt-8 text-center text-xs text-red-500 leading-relaxed font-sans px-4"></div>
+        <div id="errorDisplay" class="mt-8 text-center text-xs text-red-500 leading-relaxed font-sans"></div>
     </div>
 
     <script>
+        function updateUI(percent, text) {
+            document.getElementById('progressBar').style.width = percent + "%";
+            document.getElementById('statusLabel').innerText = text;
+        }
+
         async function generatePamphlet() {
             const key = document.getElementById('apiKey').value;
             const file = document.getElementById('imageInput').files[0];
             const btn = document.getElementById('btn');
             const progressArea = document.getElementById('progressArea');
-            const progressBar = document.getElementById('progressBar');
-            const statusLabel = document.getElementById('statusLabel');
             const errorDisplay = document.getElementById('errorDisplay');
 
             if (!key || !file) return alert("API Keyと画像を選択してください");
 
-            // UIリセット
+            // UI初期化
             btn.disabled = true;
             btn.style.opacity = "0.5";
             progressArea.classList.remove('hidden');
             errorDisplay.innerText = "";
-            updateProgress(10, "Analyzing Property Data...");
+            updateUI(10, "Analyzing Property with Gemini 2.0...");
 
-            try {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = async () => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                try {
                     const base64Data = reader.result.split(',')[1];
-                    // あなたの環境で動作が確認された「Gemini 2.0 Flash」を使用
                     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
 
-                    // STEP 1: テキスト分析と画像プロンプト生成
-                    updateProgress(30, "AI Director is writing copy...");
+                    // 1. テキスト分析
+                    updateUI(30, "AI Director is drafting the copy...");
                     const textResponse = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [
-                                { text: "あなたは東宝ハウス練馬のクリエイティブディレクターです。画像から情報を読み取り、キザな英語題名、日本語キャッチ、300字ポエム、そして表紙画像用の英語プロンプトをJSON形式で出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\", \"image_prompt\": \"...\" } トーンは圧倒的な優越感。平凡な説明（日当たり、駅近など）は禁止。" },
+                                { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語題名、日本語一言、300字ポエム、そして表紙画像用の詳細な英語プロンプト（高級誌風）をJSONで返して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\", \"image_prompt\": \"...\" }" },
                                 { inlineData: { mimeType: file.type, data: base64Data } }
                             ]}]
                         })
                     });
 
-                    if (!textResponse.ok) {
-                        const err = await textResponse.json();
-                        throw new Error("テキスト生成エラー: " + err.error.message);
-                    }
-
+                    if (!textResponse.ok) throw await textResponse.json();
                     const textData = await textResponse.json();
                     const aiText = textData.candidates[0].content.parts[0].text;
-                    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) throw new Error("AIの応答形式が正しくありません。");
-                    const data = JSON.parse(jsonMatch[0]);
+                    const json = JSON.parse(aiText.match(/\{[\s\S]*\}/)[0]);
 
-                    // STEP 2: 画像生成
-                    updateProgress(60, "Gemini is painting cover image...");
+                    // 2. 表紙画像生成
+                    updateUI(60, "Gemini is painting the cover art...");
+                    const imageEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${key}`;
                     
-                    // 画像生成（image-preview）に対応したモデルID（仮）をセット
-                    const endpointImage = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${key}`;
-                    
-                    const imageResponse = await fetch(endpointImage, {
+                    const imageResponse = await fetch(imageEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: data.image_prompt + " Luxury apartment magazine cover style, high-end photography --aspect 9:16 --v 6.0" }] }] // 雑誌風にするため縦長を模倣
+                            contents: [{ parts: [{ text: json.image_prompt + " High-end lifestyle magazine cover, cinematic lighting, 8k resolution" }] }]
                         })
                     });
 
-                    if (!imageResponse.ok) {
-                        const err = await imageResponse.json();
-                        throw new Error("画像生成エラー: " + err.error.message);
-                    }
-
+                    if (!imageResponse.ok) throw await imageResponse.json();
                     const imageData = await imageResponse.json();
                     const coverBase64 = imageData.candidates[0].content.parts[0].inlineData.data;
 
-                    // STEP 3: パワポ生成
-                    updateProgress(90, "Assembling Powerpoint slides...");
-                    createPPTX(data, `data:image/png;base64,${coverBase64}`, reader.result);
+                    // 3. パワポ組み立て
+                    updateUI(90, "Assembling the HERITAGE Proposal...");
+                    const pptx = new PptxGenJS();
+                    
+                    // スライド1: 雑誌風表紙
+                    const slide1 = pptx.addSlide();
+                    slide1.background = { color: "000000" };
+                    slide1.addImage({ data: `data:image/png;base64,${coverBase64}`, x: 0, y: 0, w: "100%", h: "100%" });
+                    slide1.addText(json.title, { x: 0.5, y: 1.0, w: 9, fontSize: 48, color: "FFFFFF", bold: true, fontFace: "Georgia" });
+                    slide1.addText(json.catchphrase, { x: 0.5, y: 2.2, w: 8, fontSize: 24, color: "FFFFFF", fontFace: "MS Mincho", bold: true });
+                    slide1.addText(json.description, { x: 0.5, y: 6.5, w: 5, fontSize: 11, color: "FFFFFF", fontFace: "MS Mincho", lineSpacing: 22 });
+                    slide1.addText("TOHO HOUSE NERIMA COLLECTIVE", { x: 0.5, y: 0.4, fontSize: 10, color: "FFFFFF", bold: true });
 
-                    updateProgress(100, "COMPLETED. Check your downloads.");
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.style.opacity = "1";
-                        progressArea.classList.add('hidden');
-                    }, 3000);
+                    // スライド2: 図面
+                    const slide2 = pptx.addSlide();
+                    slide2.background = { color: "FFFFFF" };
+                    slide2.addImage({ data: reader.result, x: 0.5, y: 0.5, w: 9, h: 6.5, sizing: { type: "contain" } });
+
+                    await pptx.writeFile({ fileName: `THE_HERITAGE_${Date.now()}.pptx` });
+                    updateUI(100, "FINALISED. DOWNLOAD STARTED.");
 
                 } catch (e) {
-                    handleError(e);
+                    console.error(e);
+                    let msg = e.error?.message || "An unexpected error occurred.";
+                    if (msg.includes("429")) msg = "【制限エラー】15〜30秒待ってから再試行してください。";
+                    errorDisplay.innerText = msg;
+                } finally {
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                    setTimeout(() => progressArea.classList.add('hidden'), 5000);
                 }
-            } catch (e) {
-                handleError(e);
-            }
-        }
-
-        function updateProgress(percent, text) {
-            document.getElementById('progressBar').style.width = percent + "%";
-            document.getElementById('statusLabel').innerText = text;
-        }
-
-        function handleError(err) {
-            const errorDisplay = document.getElementById('errorDisplay');
-            const btn = document.getElementById('btn');
-            const progressArea = document.getElementById('progressArea');
-            
-            console.error(err);
-            let msg = "Error: " + (err.error?.message || "Unknown Error");
-            
-            if (msg.includes("Quota exceeded") || msg.includes("429")) {
-                msg = "【制限エラー】APIの回数制限を超えました。無料枠のため、15〜30秒ほど待ってからもう一度お試しください。";
-            }
-            
-            errorDisplay.innerText = msg;
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            progressArea.classList.add('hidden');
-        }
-
-        function createPPTX(aiData, coverImage, originalImage) {
-            let pptx = new PptxGenJS();
-            
-            // スライド1: 雑誌風表紙（雑誌風画像全面、タイポグラフィ）
-            let slide1 = pptx.addSlide();
-            slide1.background = { color: "FFFFFF" }; // 雑誌風なので白背景
-            slide1.addImage({ data: coverImage, x: 0, y: 0, w: "100%", h: "100%" });
-            
-            // デザイン要素（Georgia：高級感のあるセリフ体）
-            slide1.addText(aiData.title, {
-                x: 0.5, y: 0.5, w: 9, fontSize: 60, color: "FFFFFF", bold: true, fontFace: "Georgia", charSpacing: 2
-            });
-
-            // ロゴ代わりのテキスト
-            slide1.addText("THE NERIMA COLLECTIVE", {
-                x: 0.5, y: 1.2, fontSize: 12, color: "FFFFFF", bold: true, charSpacing: 1
-            });
-
-            // キャッチコピー（MS Mincho：日本語の静寂と重厚感を演出、中央に配置）
-            slide1.addText(aiData.catchphrase, {
-                x: 0.5, y: 3.5, w: 9, fontSize: 32, color: "FFFFFF", fontFace: "MS Mincho", bold: true, align: "center"
-            });
-
-            // 説明文（雑誌のような「読ませる」レイアウトに、下部に配置）
-            slide1.addText(aiData.description, {
-                x: 0.5, y: 7.0, w: 6, fontSize: 12, color: "FFFFFF", fontFace: "MS Mincho", lineSpacing: 24, align: "left"
-            });
-
-            // 最下部のブランド表記
-            slide1.addText("TOHO HOUSE NERIMA PRESENTS | VOL. 01", {
-                x: 0.5, y: 9.2, fontSize: 10, color: "FFFFFF", bold: true, align: "center"
-            });
-
-            // スライド2: 元の図面（OBJECT DETAILSとして配置）
-            let slide2 = pptx.addSlide();
-            slide2.background = { color: "000000" };
-            slide2.addImage({ data: originalImage, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.8 });
-            slide2.addText("OBJECT DETAILS", {
-                x: 0.5, y: 0.5, w: 9, fontSize: 36, color: "FFFFFF", bold: true, fontFace: "Georgia"
-            });
-
-            pptx.writeFile({ fileName: `TOHO_STYLISH_PROPOSAL_${Date.now()}.pptx` });
+            };
         }
     </script>
 </body>
