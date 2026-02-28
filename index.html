@@ -2,79 +2,93 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 2.8</title>
+    <title>THE HERITAGE - Ver 3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
-<body class="bg-black text-white p-10 font-serif">
-    <div class="max-w-md mx-auto text-center space-y-6">
-        <h1 class="text-3xl tracking-widest font-bold">THE HERITAGE</h1>
-        <p class="text-[10px] bg-green-600 inline-block px-2 py-1 rounded">Ver 2.8 (Final Sync)</p>
+<body class="bg-black text-white p-10 font-serif text-center">
+    <div class="max-w-md mx-auto space-y-8">
+        <h1 class="text-3xl font-bold tracking-widest uppercase">THE HERITAGE</h1>
+        <div class="text-right"><span class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded">Ver 3.1 (Gen 3 Ready)</span></div>
         
         <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 space-y-6 text-left">
-            <input type="password" id="k" class="w-full bg-black border border-gray-700 p-3 rounded text-sm outline-none" placeholder="AI Studio New Key">
+            <input type="password" id="k" class="w-full bg-black border border-gray-700 p-3 rounded text-sm outline-none focus:border-white" placeholder="Gemini API Key">
             <input type="file" id="i" accept="image/*" class="w-full text-xs text-gray-400">
-            <button onclick="run()" id="b" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 uppercase tracking-widest">Build PPTX</button>
+            <button onclick="runV31()" id="b" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase">Build COOL Proposal</button>
         </div>
-        <p id="m" class="text-[11px] text-gray-500 whitespace-pre-wrap"></p>
+        <p id="m" class="text-[11px] text-gray-500 whitespace-pre-wrap leading-relaxed"></p>
     </div>
 
     <script>
-        async function run() {
+        async function runV31() {
             const k = document.getElementById('k').value;
             const f = document.getElementById('i').files[0];
             const m = document.getElementById('m');
             const b = document.getElementById('b');
 
-            if(!k || !f) return alert("Keyと画像を入力してください");
+            if(!k || !f) return alert("Keyと画像を選択してください");
 
             b.disabled = true;
-            m.innerText = "東宝ハウスの美学をAIに同期中...";
+            m.innerText = "最新世代Gemini (Gen 3系) に同期中...";
 
             const r = new FileReader();
             r.readAsDataURL(f);
             r.onload = async () => {
                 const base64 = r.result.split(',')[1];
-                // エンドポイントを正規版 v1 に固定
-                const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${k}`;
+                
+                // 画面で確認できた正確なモデルIDを優先順位順にセット
+                const modelIds = [
+                    "gemini-3-flash-preview",
+                    "gemini-3.1-flash-image-preview",
+                    "gemini-flash-latest",
+                    "gemini-1.5-flash"
+                ];
 
-                try {
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [
-                                { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像から『成功者の静寂』をテーマに、キザな英語題名、日本語一言、300字ポエムをJSONで出力して。{ \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
-                                { inlineData: { mimeType: f.type, data: base64 } }
-                            ]}]
-                        })
-                    });
-
-                    if(!res.ok) {
-                        const error = await res.json();
-                        throw new Error(`[API Error] ${error.error.message}`);
-                    }
-
-                    const data = await res.json();
-                    const aiTxt = data.candidates[0].content.parts[0].text;
-                    const json = JSON.parse(aiTxt.match(/\{[\s\S]*\}/)[0]);
-
-                    const pptx = new PptxGenJS();
-                    const slide = pptx.addSlide();
-                    slide.background = { color: "000000" };
-                    slide.addImage({ data: r.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
-                    slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 22, color: "FFFFFF" });
-                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 11, color: "CCCCCC", lineSpacing: 22 });
+                let success = false;
+                for (const modelId of modelIds) {
+                    if (success) break;
+                    m.innerText = `試行中: ${modelId}...`;
                     
-                    await pptx.writeFile({ fileName: "HERITAGE_PROPOSAL.pptx" });
-                    m.innerText = "成功！パワポをダウンロードしました。";
-                } catch (e) {
-                    console.error(e);
-                    m.innerText = e.message + "\n\n※404の場合、AI Studioの『新しいプロジェクト』でキーを作り直してください。";
-                } finally {
-                    b.disabled = false;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${k}`;
+
+                    try {
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [
+                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語題名、日本語一言、300字ポエムをJSONで出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                                    { inlineData: { mimeType: f.type, data: base64 } }
+                                ]}]
+                            })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            const aiTxt = data.candidates[0].content.parts[0].text;
+                            const json = JSON.parse(aiTxt.match(/\{[\s\S]*\}/)[0]);
+
+                            const pptx = new PptxGenJS();
+                            const slide = pptx.addSlide();
+                            slide.background = { color: "000000" };
+                            slide.addImage({ data: r.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+                            slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
+                            slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 22, color: "FFFFFF" });
+                            slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 11, color: "CCCCCC", lineSpacing: 22 });
+                            
+                            await pptx.writeFile({ fileName: `TOHO_GEN3_PROPOSAL.pptx` });
+                            m.innerText = `成功！モデル [${modelId}] で生成しました。`;
+                            success = true;
+                        }
+                    } catch (e) {
+                        console.error(`${modelId} failed:`, e);
+                    }
                 }
+
+                if (!success) {
+                    m.innerText = "全モデルで404。APIキーのプロジェクトが『Google AI Studio』で正しく作成されているか再確認してください。";
+                }
+                b.disabled = false;
             };
         }
     </script>
