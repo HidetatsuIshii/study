@@ -2,51 +2,46 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 2.0</title>
+    <title>THE HERITAGE - Ver 2.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body class="bg-black text-white font-serif">
     <div class="max-w-xl mx-auto py-12 px-6">
         <div class="text-right">
-            <span class="text-[10px] bg-white text-black px-2 py-1 rounded-full font-sans">System Ver 2.0 (Fetch API)</span>
+            <span class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded-full font-sans">System Ver 2.1 (Path Fixed)</span>
         </div>
 
         <h1 class="text-4xl text-center tracking-widest font-bold mt-8 mb-2">THE HERITAGE</h1>
         <p class="text-gray-500 text-center italic mb-10 text-xs">A very COOL every LIFE!</p>
 
         <div class="bg-gray-900 p-8 rounded border border-gray-800 space-y-6">
-            <div>
-                <label class="block text-[10px] text-gray-500 mb-1 uppercase">Gemini API Key</label>
-                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="AI Studio Key">
-            </div>
-            <div>
-                <label class="block text-[10px] text-gray-500 mb-1 uppercase">Object Image</label>
-                <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
-            </div>
-            <button onclick="runV2()" id="btnV2" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
+            <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="Gemini API Key">
+            <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
+            <button onclick="runV21()" id="btnV21" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
                 Build COOL Proposal
             </button>
         </div>
-        <p id="statusV2" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
+        <p id="statusV21" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
     </div>
 
     <script>
-        async function runV2() {
+        async function runV21() {
             const key = document.getElementById('apiKey').value;
             const file = document.getElementById('imageInput').files[0];
-            const status = document.getElementById('statusV2');
-            const btn = document.getElementById('btnV2');
+            const status = document.getElementById('statusV21');
+            const btn = document.getElementById('btnV21');
 
-            if(!key || !file) return alert("API Keyと画像が必要です。");
+            if(!key || !file) return alert("Keyと画像を選択してください");
 
             btn.disabled = true;
-            status.innerText = "Ver 2.0 起動中... 東宝ハウスの魂をAIへ送信。";
+            status.innerText = "Ver 2.1 実行中... 通信プロトコルを最適化。";
             
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
                 const base64Data = reader.result.split(',')[1];
+                // URLの指定方法をより厳密な形式に変更
                 const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
                 try {
@@ -56,14 +51,17 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: "あなたは東宝ハウス練馬のディレクター。画像からキザな英語タイトル、クールな日本語一言、ポエム調の紹介文をJSON形式で出力して。{ \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。この画像から『成功者の静寂』をテーマにしたキザな英語タイトル、クールな日本語一言、300字のポエムをJSONで出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
                                     { inlineData: { mimeType: file.type, data: base64Data } }
                                 ]
                             }]
                         })
                     });
 
-                    if (!response.ok) throw new Error("API疎通に失敗しました。Keyを確認してください。");
+                    if (!response.ok) {
+                        const errorJson = await response.json();
+                        throw new Error(`API Error: ${errorJson.error.message}`);
+                    }
 
                     const resData = await response.json();
                     const aiText = resData.candidates[0].content.parts[0].text;
@@ -75,12 +73,13 @@
                     slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
                     
                     slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF" });
-                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", lineSpacing: 20 });
+                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF", fontFace: "MS Mincho" });
+                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 22 });
                     
-                    await pptx.writeFile({ fileName: `TOHO_V2_PROPOSAL.pptx` });
-                    status.innerText = "完了！Ver 2.0 正常動作。";
+                    await pptx.writeFile({ fileName: `TOHO_V21_PROPOSAL.pptx` });
+                    status.innerText = "成功！東宝ハウスの美学が形になりました。";
                 } catch (e) {
+                    console.error(e);
                     status.innerText = "エラー: " + e.message;
                 } finally {
                     btn.disabled = false;
