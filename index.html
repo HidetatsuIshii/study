@@ -2,94 +2,143 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 3.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE HERITAGE - TOHO HOUSE NERIMA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
-<body class="bg-black text-white p-10 font-serif text-center">
-    <div class="max-w-md mx-auto space-y-8">
-        <h1 class="text-3xl font-bold tracking-widest uppercase">THE HERITAGE</h1>
-        <div class="text-right"><span class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded">Ver 3.1 (Gen 3 Ready)</span></div>
-        
-        <div class="bg-gray-900 p-8 rounded-2xl border border-gray-800 space-y-6 text-left">
-            <input type="password" id="k" class="w-full bg-black border border-gray-700 p-3 rounded text-sm outline-none focus:border-white" placeholder="Gemini API Key">
-            <input type="file" id="i" accept="image/*" class="w-full text-xs text-gray-400">
-            <button onclick="runV31()" id="b" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase">Build COOL Proposal</button>
-        </div>
-        <p id="m" class="text-[11px] text-gray-500 whitespace-pre-wrap leading-relaxed"></p>
+<body class="bg-black text-white font-serif">
+
+    <div class="max-w-3xl mx-auto py-12 px-6">
+        <header class="mb-12 border-b border-gray-700 pb-6 text-center">
+            <h1 class="text-4xl tracking-widest font-bold">THE HERITAGE</h1>
+            <p class="text-gray-400 mt-2 text-sm italic uppercase tracking-tighter">A very COOL every LIFE!</p>
+        </header>
+
+        <section class="space-y-8 bg-gray-900 p-8 rounded-lg border border-gray-800">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1 uppercase tracking-widest">Gemini API Key</label>
+                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-white text-sm focus:border-white outline-none transition" placeholder="Enter your API Key...">
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-500 mb-1 uppercase tracking-widest">Object Images / Sales Drawings</label>
+                <input type="file" id="imageInput" accept="image/*" multiple class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-gray-700 file:text-white hover:file:bg-gray-600 transition cursor-pointer">
+            </div>
+
+            <button onclick="generatePamphlet()" id="btn" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition uppercase tracking-widest shadow-lg">
+                CREATE COOL PROPOSAL
+            </button>
+        </section>
+
+        <div id="status" class="mt-8 text-center text-xs text-gray-500 tracking-widest h-8"></div>
     </div>
 
     <script>
-        async function runV31() {
-            const k = document.getElementById('k').value;
-            const f = document.getElementById('i').files[0];
-            const m = document.getElementById('m');
-            const b = document.getElementById('b');
+        async function generatePamphlet() {
+            const key = document.getElementById('apiKey').value;
+            const files = document.getElementById('imageInput').files;
+            const status = document.getElementById('status');
+            const btn = document.getElementById('btn');
 
-            if(!k || !f) return alert("Keyと画像を選択してください");
+            if (!key || files.length === 0) return alert("API Keyと画像を選択してください");
 
-            b.disabled = true;
-            m.innerText = "最新世代Gemini (Gen 3系) に同期中...";
+            btn.disabled = true;
+            status.innerText = "東宝ハウスの美学をAIに同期中... 魂を込めて執筆しています。";
 
-            const r = new FileReader();
-            r.readAsDataURL(f);
-            r.onload = async () => {
-                const base64 = r.result.split(',')[1];
+            try {
+                const file = files[0];
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
                 
-                // 画面で確認できた正確なモデルIDを優先順位順にセット
-                const modelIds = [
-                    "gemini-3-flash-preview",
-                    "gemini-3.1-flash-image-preview",
-                    "gemini-flash-latest",
-                    "gemini-1.5-flash"
-                ];
+                reader.onload = async () => {
+                    const base64Data = reader.result.split(',')[1];
 
-                let success = false;
-                for (const modelId of modelIds) {
-                    if (success) break;
-                    m.innerText = `試行中: ${modelId}...`;
-                    
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${k}`;
+                    // あなたの環境で動作が確認された「gemini-3-flash-preview」を第一候補に設定
+                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`;
 
-                    try {
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [
-                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語題名、日本語一言、300字ポエムをJSONで出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
-                                    { inlineData: { mimeType: f.type, data: base64 } }
-                                ]}]
-                            })
-                        });
+                    const prompt = `
+                        あなたは東宝ハウス練馬のクリエイティブディレクターです。
+                        送られた物件資料から情報を抽出し、必ず以下のJSON形式のみで出力してください。
+                        1. title: 成功者の孤独や静寂を表現する、英語のキザなタイトル
+                        2. catchphrase: 日本語で、その家でのドラマを感じさせるクールな一言
+                        3. description: 300字程度の、スペックを語らず感性に訴える紹介文
+                        
+                        トーン：圧倒的な優越感、静寂、美学。平凡な説明（日当たり、駅近など）は禁止。
+                    `;
 
-                        if (res.ok) {
-                            const data = await res.json();
-                            const aiTxt = data.candidates[0].content.parts[0].text;
-                            const json = JSON.parse(aiTxt.match(/\{[\s\S]*\}/)[0]);
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: prompt },
+                                    { inlineData: { mimeType: file.type, data: base64Data } }
+                                ]
+                            }]
+                        })
+                    });
 
-                            const pptx = new PptxGenJS();
-                            const slide = pptx.addSlide();
-                            slide.background = { color: "000000" };
-                            slide.addImage({ data: r.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
-                            slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                            slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 22, color: "FFFFFF" });
-                            slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 11, color: "CCCCCC", lineSpacing: 22 });
-                            
-                            await pptx.writeFile({ fileName: `TOHO_GEN3_PROPOSAL.pptx` });
-                            m.innerText = `成功！モデル [${modelId}] で生成しました。`;
-                            success = true;
-                        }
-                    } catch (e) {
-                        console.error(`${modelId} failed:`, e);
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.error.message);
                     }
-                }
 
-                if (!success) {
-                    m.innerText = "全モデルで404。APIキーのプロジェクトが『Google AI Studio』で正しく作成されているか再確認してください。";
-                }
-                b.disabled = false;
-            };
+                    const resData = await response.json();
+                    const aiText = resData.candidates[0].content.parts[0].text;
+                    
+                    // JSON部分を抽出
+                    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("AIの応答形式が正しくありません。");
+                    const data = JSON.parse(jsonMatch[0]);
+
+                    // パワポ生成
+                    createPPTX(data, reader.result);
+                    
+                    status.innerText = "美学が形になりました。ダウンロードを開始します。";
+                    btn.disabled = false;
+                };
+
+            } catch (e) {
+                console.error(e);
+                status.innerText = "エラー: " + e.message;
+                btn.disabled = false;
+            }
+        }
+
+        function createPPTX(aiData, mainImage) {
+            let pptx = new PptxGenJS();
+            
+            // スライド1: 表紙
+            let slide = pptx.addSlide();
+            slide.background = { color: "000000" };
+
+            // 背景写真（全面）
+            // opacityは0.5〜0.6程度が、文字が沈まずかつ写真も活きる絶妙なラインです
+            slide.addImage({ data: mainImage, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+
+            // タイトル（Georgia：高級感のあるセリフ体）
+            slide.addText(aiData.title, {
+                x: 0.5, y: 1.5, w: 9, fontSize: 44, color: "FFFFFF", bold: true, fontFace: "Georgia"
+            });
+
+            // キャッチコピー（MS Mincho：日本語の静寂と重厚感を演出）
+            slide.addText(aiData.catchphrase, {
+                x: 0.5, y: 2.8, w: 8, fontSize: 24, color: "FFFFFF", fontFace: "MS Mincho"
+            });
+
+            // 説明文（行間を広めにして雑誌のような「読ませる」レイアウトに）
+            slide.addText(aiData.description, {
+                x: 0.5, y: 4.5, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 22
+            });
+
+            // ロゴ代わりのテキスト（最上部：ブランドの象徴）
+            slide.addText("TOHO HOUSE NERIMA PRESENTS", {
+                x: 0.5, y: 0.3, fontSize: 10, color: "FFFFFF", bold: true, characterSpacing: 2
+            });
+
+            pptx.writeFile({ fileName: `HERITAGE_PROPOSAL_${Date.now()}.pptx` });
         }
     </script>
 </body>
