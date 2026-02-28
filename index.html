@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE HERITAGE - TOHO HOUSE NERIMA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://www.gstatic.com/lamda/external/google_generative_ai.js"></script>
+</head>
+<body class="bg-black text-white font-serif">
+
+    <div class="max-w-3xl mx-auto py-12 px-6">
+        <header class="mb-12 border-b border-gray-700 pb-6 text-center">
+            <h1 class="text-4xl tracking-widest font-bold">THE HERITAGE</h1>
+            <p class="text-gray-400 mt-2 text-sm italic">A very COOL every LIFE!</p>
+        </header>
+
+        <section class="space-y-8 bg-gray-900 p-8 rounded-lg border border-gray-800">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1 uppercase">Gemini API Key</label>
+                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-2 rounded text-white text-sm outline-none" placeholder="AI Studioのキーを入力">
+                <p class="text-[10px] text-gray-600 mt-1">※AI Studioで取得したキーのみ有効です</p>
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-500 mb-1 uppercase">Object Image (JPG/PNG)</label>
+                <input type="file" id="imageInput" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-gray-700 file:text-white">
+            </div>
+
+            <button onclick="generatePamphlet()" id="btn" class="w-full bg-white text-black font-bold py-4 rounded hover:opacity-90 transition uppercase tracking-tighter">
+                Generate Cool Proposal
+            </button>
+        </section>
+
+        <div id="status" class="mt-8 text-center text-sm text-gray-400 min-h-[40px]"></div>
+    </div>
+
+    <script src="https://unpkg.com/@google/generative-ai@0.21.0/dist/index.umd.js"></script>
+
+    <script>
+        async function generatePamphlet() {
+            const key = document.getElementById('apiKey').value;
+            const fileInput = document.getElementById('imageInput');
+            const status = document.getElementById('status');
+            const btn = document.getElementById('btn');
+
+            if (!key || !fileInput.files[0]) return alert("API Keyと画像を選択してください");
+
+            btn.disabled = true;
+            status.innerText = "東宝ハウス練馬の美学をAIに注入中...";
+
+            try {
+                // 複数の名前空間を確認（読み込み失敗を徹底回避）
+                const lib = window.googleGenerativeAi || window.GoogleGenerativeAi || (window.google && window.google.generativeAi);
+                
+                if (!lib) {
+                    throw new Error("ネット環境の影響で、GoogleのAI機能が読み込めていません。ページを再読み込みしてください。");
+                }
+
+                const genAI = new lib.GoogleGenerativeAI(key);
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = async () => {
+                    try {
+                        const base64Data = reader.result.split(',')[1];
+                        const prompt = "あなたは東宝ハウス練馬のクリエーター。画像から物件を読み、キザな英語タイトル、クールな日本語一言、ポエム調の紹介文をJSON形式で出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }";
+
+                        const result = await model.generateContent([
+                            { text: prompt },
+                            { inlineData: { data: base64Data, mimeType: file.type } }
+                        ]);
+                        
+                        const response = await result.response;
+                        const responseText = response.text();
+                        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                        const data = JSON.parse(jsonMatch[0]);
+
+                        let pptx = new PptxGenJS();
+                        let slide = pptx.addSlide();
+                        slide.background = { color: "000000" };
+                        slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+                        slide.addText(data.title, { x: 0.5, y: 1.2, w: 9, fontSize: 44, color: "FFFFFF", bold: true, fontFace: "Georgia" });
+                        slide.addText(data.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 22, color: "FFFFFF", fontFace: "MS Mincho" });
+                        slide.addText(data.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "DDDDDD", fontFace: "MS Mincho", lineSpacing: 22 });
+                        slide.addText("Produced by TOHO HOUSE NERIMA", { x: 0.5, y: 0.4, fontSize: 9, color: "FFFFFF", bold: true });
+
+                        await pptx.writeFile({ fileName: "COOL_PROPOSAL.pptx" });
+                        status.innerText = "成功！パワポを生成しました。";
+                    } catch (err) {
+                        console.error(err);
+                        // APIキーが間違っている場合はここでエラーが出る
+                        if (err.message.includes("403") || err.message.includes("API_KEY_INVALID")) {
+                            status.innerText = "エラー: APIキーが正しくありません。AI Studioで取得したキーか確認してください。";
+                        } else {
+                            status.innerText = "解析失敗: " + err.message;
+                        }
+                    } finally {
+                        btn.disabled = false;
+                    }
+                };
+                reader.readAsDataURL(file);
+
+            } catch (e) {
+                console.error(e);
+                status.innerText = "エラー: " + e.message;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
