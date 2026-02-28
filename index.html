@@ -3,24 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE HERITAGE - Ver 6.1</title>
+    <title>THE HERITAGE - Ver 6.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    <style>
-        .loading-shimmer {
-            background: linear-gradient(90deg, #111 25%, #222 50%, #111 75%);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    </style>
 </head>
 <body class="bg-black text-white font-serif">
 
     <div class="max-w-3xl mx-auto py-12 px-6">
         <header class="mb-12 border-b border-gray-700 pb-6 text-center">
             <h1 class="text-4xl tracking-widest font-bold uppercase">THE HERITAGE</h1>
-            <p class="text-gray-400 mt-2 text-sm italic uppercase tracking-tighter">TOHO HOUSE NERIMA COLLECTIVE</p>
+            <p class="text-gray-400 mt-2 text-sm italic uppercase tracking-tighter text-center">TOHO HOUSE NERIMA COLLECTIVE</p>
         </header>
 
         <section class="space-y-8 bg-gray-900 p-8 rounded-lg border border-gray-800 shadow-2xl">
@@ -41,7 +33,7 @@
             </div>
         </section>
 
-        <div id="errorDisplay" class="mt-8 text-center text-xs text-red-500 leading-relaxed font-sans"></div>
+        <div id="errorDisplay" class="mt-8 text-center text-xs text-red-500 leading-relaxed font-sans px-4"></div>
     </div>
 
     <script>
@@ -59,12 +51,11 @@
 
             if (!key || !file) return alert("API Keyと画像を選択してください");
 
-            // UI初期化
             btn.disabled = true;
             btn.style.opacity = "0.5";
             progressArea.classList.remove('hidden');
             errorDisplay.innerText = "";
-            updateUI(10, "Analyzing Property with Gemini 2.0...");
+            updateUI(10, "Connecting to Gemini 2.0 Flash...");
 
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -73,46 +64,51 @@
                     const base64Data = reader.result.split(',')[1];
                     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
 
-                    // 1. テキスト分析
-                    updateUI(30, "AI Director is drafting the copy...");
+                    // 1. テキスト分析と画像プロンプト生成
+                    updateUI(30, "AI Director is drafting copy...");
                     const textResponse = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{ parts: [
-                                { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語題名、日本語一言、300字ポエム、そして表紙画像用の詳細な英語プロンプト（高級誌風）をJSONで返して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\", \"image_prompt\": \"...\" }" },
+                                { text: "あなたは東宝ハウス練馬のディレクター。画像からキザな英語題名、日本語一言、300字ポエム、表紙画像用の詳細な英語プロンプトをJSONで返して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\", \"image_prompt\": \"...\" }" },
                                 { inlineData: { mimeType: file.type, data: base64Data } }
                             ]}]
                         })
                     });
 
-                    if (!textResponse.ok) throw await textResponse.json();
+                    if (!textResponse.ok) {
+                        const err = await textResponse.json();
+                        throw err;
+                    }
                     const textData = await textResponse.json();
                     const aiText = textData.candidates[0].content.parts[0].text;
                     const json = JSON.parse(aiText.match(/\{[\s\S]*\}/)[0]);
 
-                    // 2. 表紙画像生成
-                    updateUI(60, "Gemini is painting the cover art...");
+                    // 2. 表紙画像生成（Gemini 3.1 Flash Image を使用）
+                    updateUI(60, "Gemini is painting cover art...");
                     const imageEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${key}`;
                     
                     const imageResponse = await fetch(imageEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: json.image_prompt + " High-end lifestyle magazine cover, cinematic lighting, 8k resolution" }] }]
+                            contents: [{ parts: [{ text: json.image_prompt + " High-end lifestyle magazine cover, cinematic, photorealistic" }] }]
                         })
                     });
 
-                    if (!imageResponse.ok) throw await imageResponse.json();
+                    if (!imageResponse.ok) {
+                        const err = await imageResponse.json();
+                        throw err;
+                    }
                     const imageData = await imageResponse.json();
                     const coverBase64 = imageData.candidates[0].content.parts[0].inlineData.data;
 
                     // 3. パワポ組み立て
-                    updateUI(90, "Assembling the HERITAGE Proposal...");
+                    updateUI(90, "Finalising THE HERITAGE...");
                     const pptx = new PptxGenJS();
                     
-                    // スライド1: 雑誌風表紙
-                    const slide1 = pptx.addSlide();
+                    let slide1 = pptx.addSlide();
                     slide1.background = { color: "000000" };
                     slide1.addImage({ data: `data:image/png;base64,${coverBase64}`, x: 0, y: 0, w: "100%", h: "100%" });
                     slide1.addText(json.title, { x: 0.5, y: 1.0, w: 9, fontSize: 48, color: "FFFFFF", bold: true, fontFace: "Georgia" });
@@ -120,23 +116,24 @@
                     slide1.addText(json.description, { x: 0.5, y: 6.5, w: 5, fontSize: 11, color: "FFFFFF", fontFace: "MS Mincho", lineSpacing: 22 });
                     slide1.addText("TOHO HOUSE NERIMA COLLECTIVE", { x: 0.5, y: 0.4, fontSize: 10, color: "FFFFFF", bold: true });
 
-                    // スライド2: 図面
-                    const slide2 = pptx.addSlide();
+                    let slide2 = pptx.addSlide();
                     slide2.background = { color: "FFFFFF" };
                     slide2.addImage({ data: reader.result, x: 0.5, y: 0.5, w: 9, h: 6.5, sizing: { type: "contain" } });
 
-                    await pptx.writeFile({ fileName: `THE_HERITAGE_${Date.now()}.pptx` });
-                    updateUI(100, "FINALISED. DOWNLOAD STARTED.");
+                    await pptx.writeFile({ fileName: `HERITAGE_PROPOSAL_${Date.now()}.pptx` });
+                    updateUI(100, "COMPLETED.");
 
                 } catch (e) {
                     console.error(e);
-                    let msg = e.error?.message || "An unexpected error occurred.";
-                    if (msg.includes("429")) msg = "【制限エラー】15〜30秒待ってから再試行してください。";
+                    let msg = e.error?.message || "An error occurred.";
+                    if (msg.includes("429") || msg.includes("Quota")) {
+                        msg = "【回数制限】Google AIが少し疲れています。20〜30秒ほど待ってからもう一度押してください。";
+                    }
                     errorDisplay.innerText = msg;
                 } finally {
                     btn.disabled = false;
                     btn.style.opacity = "1";
-                    setTimeout(() => progressArea.classList.add('hidden'), 5000);
+                    setTimeout(() => progressArea.classList.add('hidden'), 3000);
                 }
             };
         }
