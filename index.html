@@ -2,89 +2,85 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - TOHO HOUSE NERIMA</title>
+    <title>THE HERITAGE - Ver 2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body class="bg-black text-white font-serif">
-    <div class="max-w-xl mx-auto py-20 px-6">
-        <h1 class="text-4xl text-center tracking-widest font-bold mb-2">THE HERITAGE</h1>
+    <div class="max-w-xl mx-auto py-12 px-6">
+        <div class="text-right">
+            <span class="text-[10px] bg-white text-black px-2 py-1 rounded-full font-sans">System Ver 2.0 (Fetch API)</span>
+        </div>
+
+        <h1 class="text-4xl text-center tracking-widest font-bold mt-8 mb-2">THE HERITAGE</h1>
         <p class="text-gray-500 text-center italic mb-10 text-xs">A very COOL every LIFE!</p>
 
         <div class="bg-gray-900 p-8 rounded border border-gray-800 space-y-6">
             <div>
                 <label class="block text-[10px] text-gray-500 mb-1 uppercase">Gemini API Key</label>
-                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="Paste your API Key here">
+                <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="AI Studio Key">
             </div>
             <div>
-                <label class="block text-[10px] text-gray-500 mb-1 uppercase">Object Image (PNG/JPG)</label>
-                <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-gray-800 file:text-white hover:file:bg-gray-700">
+                <label class="block text-[10px] text-gray-500 mb-1 uppercase">Object Image</label>
+                <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
             </div>
-            <button onclick="generate()" id="btn" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
-                Create Cool Proposal
+            <button onclick="runV2()" id="btnV2" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
+                Build COOL Proposal
             </button>
         </div>
-        <p id="status" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
+        <p id="statusV2" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
     </div>
 
     <script>
-        async function generate() {
+        async function runV2() {
             const key = document.getElementById('apiKey').value;
             const file = document.getElementById('imageInput').files[0];
-            const status = document.getElementById('status');
-            const btn = document.getElementById('btn');
+            const status = document.getElementById('statusV2');
+            const btn = document.getElementById('btnV2');
 
-            if(!key || !file) return alert("API Keyと画像を選択してください");
+            if(!key || !file) return alert("API Keyと画像が必要です。");
 
             btn.disabled = true;
-            status.innerText = "東宝ハウス練馬の美学を注入中...";
+            status.innerText = "Ver 2.0 起動中... 東宝ハウスの魂をAIへ送信。";
             
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
                 const base64Data = reader.result.split(',')[1];
-                // APIエンドポイントを直接叩く方式
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
                 try {
-                    const response = await fetch(url, {
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: "あなたは東宝ハウス練馬のディレクターです。画像から物件を読み、キザな英語タイトル、クールな日本語一言、ポエム調の紹介文をJSON形式で出力してください。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                                    { text: "あなたは東宝ハウス練馬のディレクター。画像からキザな英語タイトル、クールな日本語一言、ポエム調の紹介文をJSON形式で出力して。{ \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
                                     { inlineData: { mimeType: file.type, data: base64Data } }
                                 ]
                             }]
                         })
                     });
 
-                    if (!response.ok) {
-                        const errData = await response.json();
-                        throw new Error(errData.error.message || "API通信エラー");
-                    }
+                    if (!response.ok) throw new Error("API疎通に失敗しました。Keyを確認してください。");
 
                     const resData = await response.json();
                     const aiText = resData.candidates[0].content.parts[0].text;
-                    const jsonStr = aiText.match(/\{[\s\S]*\}/)[0];
-                    const json = JSON.parse(jsonStr);
+                    const json = JSON.parse(aiText.match(/\{[\s\S]*\}/)[0]);
 
-                    // パワポ生成
                     const pptx = new PptxGenJS();
                     const slide = pptx.addSlide();
                     slide.background = { color: "000000" };
                     slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
                     
                     slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF", fontFace: "MS Mincho" });
-                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 20 });
-                    slide.addText("Produced by TOHO HOUSE NERIMA", { x: 0.5, y: 0.4, fontSize: 9, color: "FFFFFF", bold: true });
+                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF" });
+                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", lineSpacing: 20 });
                     
-                    await pptx.writeFile({ fileName: `TOHO_COOL_PROPOSAL.pptx` });
-                    status.innerText = "成功！パワポが生成されました。";
+                    await pptx.writeFile({ fileName: `TOHO_V2_PROPOSAL.pptx` });
+                    status.innerText = "完了！Ver 2.0 正常動作。";
                 } catch (e) {
-                    console.error(e);
                     status.innerText = "エラー: " + e.message;
                 } finally {
                     btn.disabled = false;
