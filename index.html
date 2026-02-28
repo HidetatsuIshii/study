@@ -2,89 +2,101 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 2.2</title>
+    <title>THE HERITAGE - Ver 2.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body class="bg-black text-white font-serif">
     <div class="max-w-xl mx-auto py-12 px-6">
         <div class="text-right">
-            <span class="text-[10px] bg-green-600 text-white px-2 py-1 rounded-full font-sans">System Ver 2.2 (API v1 Fixed)</span>
+            <span class="text-[10px] bg-red-600 text-white px-2 py-1 rounded-full font-sans tracking-tighter">System Ver 2.3 (Multi-Model Retry)</span>
         </div>
 
         <h1 class="text-4xl text-center tracking-widest font-bold mt-8 mb-2">THE HERITAGE</h1>
-        <p class="text-gray-500 text-center italic mb-10 text-xs text-">A very COOL every LIFE!</p>
+        <p class="text-gray-500 text-center italic mb-10 text-xs">A very COOL every LIFE!</p>
 
         <div class="bg-gray-900 p-8 rounded border border-gray-800 space-y-6">
             <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="Gemini API Key">
             <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
-            <button onclick="runV22()" id="btnV22" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
+            <button onclick="runV23()" id="btnV23" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
                 Build COOL Proposal
             </button>
         </div>
-        <p id="statusV22" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
+        <p id="statusV23" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
     </div>
 
     <script>
-        async function runV22() {
+        async function runV23() {
             const key = document.getElementById('apiKey').value;
             const file = document.getElementById('imageInput').files[0];
-            const status = document.getElementById('statusV22');
-            const btn = document.getElementById('btnV22');
+            const status = document.getElementById('statusV23');
+            const btn = document.getElementById('btnV23');
 
             if(!key || !file) return alert("Keyと画像を選択してください");
 
             btn.disabled = true;
-            status.innerText = "Ver 2.2 実行中... エンドポイントをv1へ切り替え。";
             
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
                 const base64Data = reader.result.split(',')[1];
-                // エンドポイントを v1beta から v1 に変更
-                const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
+                
+                // 試行するモデルのリスト
+                const models = [
+                    "gemini-1.5-flash",
+                    "gemini-1.5-flash-latest",
+                    "gemini-1.5-flash-001",
+                    "gemini-pro-vision" // 旧型だが動く可能性あり
+                ];
 
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクターです。この画像から『成功者の静寂』をテーマにしたキザな英語タイトル、クールな日本語一言、300字のポエムをJSONで出力してください。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
-                                    { inlineData: { mimeType: file.type, data: base64Data } }
-                                ]
-                            }]
-                        })
-                    });
+                let success = false;
 
-                    if (!response.ok) {
-                        const errorJson = await response.json();
-                        throw new Error(`API Error: ${errorJson.error.message}`);
+                for (const modelName of models) {
+                    if (success) break;
+                    status.innerText = `試行中: ${modelName}...`;
+                    
+                    const endpoint = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${key}`;
+
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [
+                                        { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。画像からキザな英語タイトル、クールな日本語一言、300字のポエムをJSONで出力して。{ \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                                        { inlineData: { mimeType: file.type, data: base64Data } }
+                                    ]
+                                }]
+                            })
+                        });
+
+                        if (response.ok) {
+                            const resData = await response.json();
+                            const aiText = resData.candidates[0].content.parts[0].text;
+                            const json = JSON.parse(aiText.match(/\{[\s\S]*\}/)[0]);
+
+                            const pptx = new PptxGenJS();
+                            const slide = pptx.addSlide();
+                            slide.background = { color: "000000" };
+                            slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
+                            slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
+                            slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF" });
+                            slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", lineSpacing: 22 });
+                            
+                            await pptx.writeFile({ fileName: `TOHO_SUCCESS_PROPOSAL.pptx` });
+                            status.innerText = `成功！モデル [${modelName}] で生成しました。`;
+                            success = true;
+                        }
+                    } catch (e) {
+                        console.log(`${modelName} failed: `, e);
                     }
-
-                    const resData = await response.json();
-                    const aiText = resData.candidates[0].content.parts[0].text;
-                    const jsonStr = aiText.match(/\{[\s\S]*\}/)[0];
-                    const json = JSON.parse(jsonStr);
-
-                    const pptx = new PptxGenJS();
-                    const slide = pptx.addSlide();
-                    slide.background = { color: "000000" };
-                    slide.addImage({ data: reader.result, x: 0, y: 0, w: "100%", h: "100%", opacity: 0.5 });
-                    
-                    slide.addText(json.title, { x: 0.5, y: 1.5, w: 9, fontSize: 40, color: "FFFFFF", fontFace: "Georgia", bold: true });
-                    slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF", fontFace: "MS Mincho" });
-                    slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 22 });
-                    
-                    await pptx.writeFile({ fileName: `TOHO_V22_PROPOSAL.pptx` });
-                    status.innerText = "成功！東宝ハウスの美学がパワポになりました。";
-                } catch (e) {
-                    console.error(e);
-                    status.innerText = "エラー: " + e.message;
-                } finally {
-                    btn.disabled = false;
                 }
+
+                if (!success) {
+                    status.innerText = "全モデルで失敗しました。APIキーまたはネットワーク設定を確認してください。";
+                }
+                btn.disabled = false;
             };
         }
     </script>
