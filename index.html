@@ -2,47 +2,47 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>THE HERITAGE - Ver 2.1</title>
+    <title>THE HERITAGE - Ver 2.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body class="bg-black text-white font-serif">
     <div class="max-w-xl mx-auto py-12 px-6">
         <div class="text-right">
-            <span class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded-full font-sans">System Ver 2.1 (Path Fixed)</span>
+            <span class="text-[10px] bg-green-600 text-white px-2 py-1 rounded-full font-sans">System Ver 2.2 (API v1 Fixed)</span>
         </div>
 
         <h1 class="text-4xl text-center tracking-widest font-bold mt-8 mb-2">THE HERITAGE</h1>
-        <p class="text-gray-500 text-center italic mb-10 text-xs">A very COOL every LIFE!</p>
+        <p class="text-gray-500 text-center italic mb-10 text-xs text-">A very COOL every LIFE!</p>
 
         <div class="bg-gray-900 p-8 rounded border border-gray-800 space-y-6">
             <input type="password" id="apiKey" class="w-full bg-black border border-gray-700 p-3 rounded text-sm focus:border-white outline-none" placeholder="Gemini API Key">
             <input type="file" id="imageInput" accept="image/*" class="w-full text-xs text-gray-400">
-            <button onclick="runV21()" id="btnV21" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
+            <button onclick="runV22()" id="btnV22" class="w-full bg-white text-black font-bold py-4 rounded hover:bg-gray-200 transition tracking-widest uppercase text-sm">
                 Build COOL Proposal
             </button>
         </div>
-        <p id="statusV21" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
+        <p id="statusV22" class="mt-6 text-center text-xs text-gray-500 h-4"></p>
     </div>
 
     <script>
-        async function runV21() {
+        async function runV22() {
             const key = document.getElementById('apiKey').value;
             const file = document.getElementById('imageInput').files[0];
-            const status = document.getElementById('statusV21');
-            const btn = document.getElementById('btnV21');
+            const status = document.getElementById('statusV22');
+            const btn = document.getElementById('btnV22');
 
             if(!key || !file) return alert("Keyと画像を選択してください");
 
             btn.disabled = true;
-            status.innerText = "Ver 2.1 実行中... 通信プロトコルを最適化。";
+            status.innerText = "Ver 2.2 実行中... エンドポイントをv1へ切り替え。";
             
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = async () => {
                 const base64Data = reader.result.split(',')[1];
-                // URLの指定方法をより厳密な形式に変更
-                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+                // エンドポイントを v1beta から v1 に変更
+                const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
 
                 try {
                     const response = await fetch(endpoint, {
@@ -51,7 +51,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [
-                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクター。この画像から『成功者の静寂』をテーマにしたキザな英語タイトル、クールな日本語一言、300字のポエムをJSONで出力して。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
+                                    { text: "あなたは東宝ハウス練馬のクリエイティブディレクターです。この画像から『成功者の静寂』をテーマにしたキザな英語タイトル、クールな日本語一言、300字のポエムをJSONで出力してください。 { \"title\": \"...\", \"catchphrase\": \"...\", \"description\": \"...\" }" },
                                     { inlineData: { mimeType: file.type, data: base64Data } }
                                 ]
                             }]
@@ -65,7 +65,8 @@
 
                     const resData = await response.json();
                     const aiText = resData.candidates[0].content.parts[0].text;
-                    const json = JSON.parse(aiText.match(/\{[\s\S]*\}/)[0]);
+                    const jsonStr = aiText.match(/\{[\s\S]*\}/)[0];
+                    const json = JSON.parse(jsonStr);
 
                     const pptx = new PptxGenJS();
                     const slide = pptx.addSlide();
@@ -76,8 +77,8 @@
                     slide.addText(json.catchphrase, { x: 0.5, y: 2.5, w: 8, fontSize: 20, color: "FFFFFF", fontFace: "MS Mincho" });
                     slide.addText(json.description, { x: 0.5, y: 4.0, w: 5, fontSize: 12, color: "CCCCCC", fontFace: "MS Mincho", lineSpacing: 22 });
                     
-                    await pptx.writeFile({ fileName: `TOHO_V21_PROPOSAL.pptx` });
-                    status.innerText = "成功！東宝ハウスの美学が形になりました。";
+                    await pptx.writeFile({ fileName: `TOHO_V22_PROPOSAL.pptx` });
+                    status.innerText = "成功！東宝ハウスの美学がパワポになりました。";
                 } catch (e) {
                     console.error(e);
                     status.innerText = "エラー: " + e.message;
